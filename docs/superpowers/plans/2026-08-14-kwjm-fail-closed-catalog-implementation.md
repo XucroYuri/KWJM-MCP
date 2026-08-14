@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 建立以实时精确模型 ID 为存在性真相、以操作级契约为执行授权的失败关闭目录，彻底删除未知模型自动落入 `/v1/chat/completions` 的不安全行为，并固化异步图片统一任务协议。
+**Goal:** 建立以实时精确模型 ID 为存在性真相、以操作级契约为执行授权的失败关闭目录，彻底删除未知模型自动落入 `/v1/chat/completions` 的不安全行为，并固化异步图片协议与版本化价格快照。
 
-**Architecture:** 新增独立 `catalog/` 边界，把实时快照、策展档案、协议档案、解析与授权分开；旧 `core/registry.ts` 在本阶段末仅保留兼容导出，不再拥有模型真相。所有现有生成 handler 在触网前必须携带 `OperationId` 请求授权，只有 `documented` 或 `verified` 的精确模型/操作契约才能取得协议档案。
+**Architecture:** 新增独立 `catalog/` 边界，把实时快照、策展档案、协议档案、价格快照、解析与授权分开；旧 `core/registry.ts` 在本阶段末仅保留兼容导出，不再拥有模型真相。所有现有生成 handler 在触网前必须携带 `OperationId` 请求授权，只有 `documented` 或 `verified` 的精确模型/操作契约才能取得协议档案；价格只作为按精确 ID 与操作查询的时间点证据，不参与本阶段的网络调用或结算。
 
 **Tech Stack:** TypeScript 5.6、Node.js 18+、Zod、Node test runner、`@modelcontextprotocol/sdk` 1.x。
+
+**Spec:** `docs/superpowers/specs/2026-08-14-kwjm-full-model-protocol-design.md`。
 
 ## Global Constraints
 
@@ -18,7 +20,10 @@
 - 异步图片协议支持 `images` 参考图列表；本阶段不得推断其支持未文档化的 `mask`。精确 mask/multipart 编辑继续绑定同步 `/v1/images/edits`。
 - 图片稳定性选择为：GPT 生成/参考图 `gpt-image-2-gp` → `gpt-image-2-hq` → `gpt-image-2` → `gpt-image-2-sp`；Gemini 3.1 生成/参考图 `-gp` → `-hq` → `-wc`。
 - `gpt-image-2-sp`、`gemini-3.1-flash-image-preview-wc` 和 `openai/gpt-image-2` 为 `off_by_default`；排序不授权失败后静默换模型重试。
+- 版本化价格按精确模型 ID × 单一操作记录；金额使用十进制字符串，不从别名、后缀或家族继承，不把页面观察价写成实际结算金额。
+- 默认选模顺序是能力硬条件 → 操作/协议 → 参数支持 → 稳定性 → 可比较预计成本；本阶段只提供价格事实，不实现跨计费单位自动比较。
 - 本阶段不发起任何付费生成调用；只允许本地测试和显式执行的 `/v1/models` 只读刷新。
+- 本阶段不调用日结、钱包或网页控制台，不实现单任务成本回执；日结聚合和本地成本缓存属于独立后续计划。
 - 测试夹具、矩阵、错误、日志和审计收据不得记录或输出 `KWJM_API_KEY`、提示词、messages、工具实参、
   生成内容、媒体字节、媒体 URL 或完整上游响应。
 - 不新增依赖；禁止新增无边界 `any`、`z.any()` 或由名称/厂商猜路由的分支。
@@ -33,6 +38,7 @@
 - `src/catalog/operations.ts`：全部 `OperationId` 常量及操作到工具语义的映射。
 - `src/catalog/protocol-profiles.ts`：固定方法、路径、状态和重试语义的协议档案。
 - `src/catalog/model-profiles.ts`：策展模型档案；只声明有证据的操作契约。
+- `src/catalog/pricing.ts`：按精确模型 ID × 操作保存带日期的价格观察，不含结算金额或截图路径。
 - `src/catalog/live-snapshot.ts`：实时 `/v1/models` 响应的有界解析与存在性快照。
 - `src/catalog/catalog.ts`：精确 ID/别名解析、实时合并、分页列表和操作授权。
 - `src/catalog/matrix.ts`：从快照和策展目录生成确定性的审计矩阵。
@@ -43,6 +49,7 @@
 - `test/catalog-resolution.unit.test.ts`：精确 ID、别名、未知模型与歧义解析测试。
 - `test/catalog-authorization.unit.test.ts`：操作级失败关闭和跨协议误用测试。
 - `test/catalog-image-priority.unit.test.ts`：图片变体排序与异步协议契约测试。
+- `test/catalog-pricing.unit.test.ts`：价格方案、精确 ID 隔离、十进制金额和不可继承测试。
 - `test/catalog-matrix.unit.test.ts`：109 模型矩阵覆盖和确定性测试。
 - `test/catalog-handler-guard.integration.test.ts`：证明操作授权拒绝发生在任何 HTTP 调用之前。
 - `docs/audits/model-contract-matrix.json`：逐模型、逐操作的可复现审计矩阵。
@@ -59,7 +66,7 @@
 - `src/handlers/validate.ts`：读取目标操作的约束，而不是读取单值模态能力。
 - `test/registry.unit.test.ts`：保留兼容面回归测试，删除“未知实时模型可显式执行”的旧假设。
 - `test/e2e.test.ts`：验证服务器级发现结果包含契约状态和空操作列表，不发起外部请求。
-- `test/live.readonly.test.ts`：核心清单更新为设计中的 21 个精确 ID，只验证存在性和精确 ID 保留。
+- `test/live.readonly.test.ts`：核心清单更新为设计中的 22 个精确 ID，只验证存在性和精确 ID 保留。
 - `package.json`：增加 `test:catalog` 和 `verify:matrix`，并把目录测试加入 `npm test`。
 
 ## Interfaces
@@ -132,7 +139,24 @@ export interface OperationContract {
   costFactors: readonly string[];
   requirements: readonly string[];
   evidence: readonly EvidenceRef[];
+  pricingSnapshots: readonly PricingSnapshot[];
   constraints?: Constraints;
+}
+
+export type PriceScheme =
+  | { kind: 'token_pair'; inputCnyPerMillionTokens: string; outputCnyPerMillionTokens: string; imageInputToTextMultiplier?: string }
+  | { kind: 'resolution_tier'; unit: 'per_output_image'; tiersCny: Readonly<Record<string, string>> }
+  | { kind: 'fixed_output'; amountCny: string; scope: 'platform_standard_price_unspecified_resolution' }
+  | { kind: 'unknown' };
+
+export interface PricingSnapshot {
+  exactId: string;
+  operation: OperationId;
+  currency: 'CNY';
+  scheme: PriceScheme;
+  observedAt: string;
+  evidence: EvidenceRef;
+  observationStatus: 'observed_only' | 'superseded' | 'unknown';
 }
 
 export interface ModelProfile {
@@ -179,6 +203,18 @@ export type AuthorizationDecision =
   | { ok: false; code: 'MODEL_NOT_FOUND' | 'MODEL_AMBIGUOUS' | 'MODEL_NOT_AVAILABLE' | 'OPERATION_NOT_CONTRACTED' | 'OPERATION_BLOCKED' | 'EXPLICIT_SELECTION_REQUIRED'; message: string; candidates?: readonly string[] };
 ```
 
+## Scope Decomposition
+
+本文件只执行正式设计的阶段 0，并形成后续计划依赖的稳定目录接口。阶段 0 完成后按顺序分别编写并执行：
+
+1. 现代 MCP `registerTool`、结构化输出、规划器与选模策略。
+2. 单日日结聚合、`KWJM_API_KEY_ID` 过滤、安全缓存与人工测试回执。
+3. Chat、Responses、Messages、Gemini Native 与协议专属流式实现。
+4. 图片、视频、音频、处理、资产和异步任务账本。
+5. 协议族代表实测、核心模型门禁测试、npm/GitHub 发布收口。
+
+后续计划不得修改本阶段的精确 ID、失败关闭、价格证据或不自动重试不变量；若确需修改，必须先更新正式设计并重新评审。
+
 ---
 
 ### Task 1: 锁定目录领域类型和操作词表
@@ -221,7 +257,9 @@ Expected: FAIL，错误包含 `Cannot find module '../src/catalog/operations.js'
 - [ ] **Step 3: 实现稳定类型和操作常量**
 
 在 `src/catalog/operations.ts` 用 `as const satisfies readonly OperationId[]` 导出完整操作列表；在
-`src/catalog/types.ts` 实现本计划 Interfaces 中的类型，并补充：
+`src/catalog/types.ts` 实现本计划 Interfaces 中的类型，并补充下列证据类型。`PricingSnapshot` 的金额字段
+只能是十进制字符串；`OperationContract.pricingSnapshots` 必须存在，未知价格使用空数组，不用
+`undefined` 暗示可继承价格。
 
 ```ts
 export type EvidenceKind =
@@ -230,7 +268,9 @@ export type EvidenceKind =
   | 'operator_observation'
   | 'contract_test'
   | 'representative_live'
-  | 'exact_live';
+  | 'exact_live'
+  | 'platform_ui_snapshot'
+  | 'manual_console_receipt';
 
 export interface EvidenceRef {
   kind: EvidenceKind;
@@ -270,7 +310,7 @@ Expected: PASS，TypeScript 无隐式 `any`。
 
 ```bash
 git add src/catalog/types.ts src/catalog/operations.ts src/catalog/index.ts test/catalog-authorization.unit.test.ts
-git commit -m "refactor(catalog): define operation contracts"
+git commit -m "ref(catalog): Define operation contracts"
 ```
 
 ### Task 2: 固化 109 模型快照并严格解析实时响应
@@ -325,7 +365,7 @@ Expected: PASS，基线断言为 109 个唯一精确 ID。
 
 ```bash
 git add src/catalog/live-snapshot.ts test/fixtures/kwjm/models-2026-08-14.json test/catalog-live-snapshot.unit.test.ts
-git commit -m "test(catalog): freeze live model snapshot"
+git commit -m "test(catalog): Freeze live model snapshot"
 ```
 
 ### Task 3: 建立协议档案并锁定异步图片统一契约
@@ -396,7 +436,7 @@ Expected: PASS；测试中找不到 `/v1/videos/` 或通用任务查询回退。
 
 ```bash
 git add src/catalog/protocol-profiles.ts test/catalog-image-priority.unit.test.ts
-git commit -m "feat(catalog): define async image protocol"
+git commit -m "feat(catalog): Define async image protocol"
 ```
 
 ### Task 4: 策展核心模型和图片稳定性排序
@@ -409,7 +449,7 @@ git commit -m "feat(catalog): define async image protocol"
 
 **Interfaces:**
 
-- Consumes: `PROTOCOL_PROFILES`、21 个核心精确模型 ID、证据分层。
+- Consumes: `PROTOCOL_PROFILES`、22 个核心精确模型 ID、证据分层。
 - Produces: `CURATED_MODEL_PROFILES`、`IMAGE_SELECTION_POLICIES` 和 `getCuratedProfile(exactId)`。
 
 - [ ] **Step 1: 写精确 ID 与稳定性排序失败测试**
@@ -442,10 +482,12 @@ Expected: FAIL，缺少策展档案。
 
 - [ ] **Step 3: 实现策展档案**
 
-把 21 个核心 ID 逐个写为精确键。只有精确官方文档或已经存在的脱敏 `exact_live` 收据可以支撑
+把 22 个核心 ID 逐个写为精确键。只有精确官方文档或已经存在的脱敏 `exact_live` 收据可以支撑
 `documented`/`verified` 可执行契约；`contract_test` 只能验证本地实现与既有契约一致，不能单独升级能力。
 `operator_observation` 只影响选择排序。只有 `live_list` 的单元保持 `unverified_variant`，
 `operationContracts` 为空；不得从 `owned_by`、后缀或相邻模型复制端点。
+Task 4 创建的每个 `OperationContract` 先显式设置 `pricingSnapshots: []`，使类型完整且不隐式继承价格；
+Task 5 再按精确 ID 与操作注入已验证的价格观察。
 
 核心精确 ID 常量必须完整写成：
 
@@ -462,6 +504,7 @@ export const CORE_MODEL_IDS = [
   'kw-video-v2-mini',
   'kw-video-v2.5',
   'openai/gpt-5.5',
+  'openai/gpt-image-2',
   'gpt-image-2',
   'gpt-image-2-gp',
   'sd-video-enhance-ext',
@@ -491,10 +534,110 @@ Expected: PASS；`openai/gpt-image-2` 与 `gpt-image-2` 返回不同档案对象
 
 ```bash
 git add src/catalog/model-profiles.ts test/catalog-image-priority.unit.test.ts test/catalog-resolution.unit.test.ts
-git commit -m "feat(catalog): curate priority model profiles"
+git commit -m "feat(catalog): Curate priority model profiles"
 ```
 
-### Task 5: 实现实时合并、解析和操作级失败关闭授权
+### Task 5: 固化版本化价格观察并禁止继承
+
+**Files:**
+
+- Create: `src/catalog/pricing.ts`
+- Create: `test/catalog-pricing.unit.test.ts`
+- Modify: `src/catalog/model-profiles.ts`
+- Modify: `src/catalog/index.ts`
+
+**Interfaces:**
+
+- Consumes: `PricingSnapshot`、`EvidenceRef`、`OperationId`。
+- Produces: `PRICING_SNAPSHOTS`、`getPricingSnapshots(exactId, operation)` 和
+  `assertPricingSnapshots(snapshots)`。
+
+- [ ] **Step 1: 写价格快照失败测试**
+
+在 `test/catalog-pricing.unit.test.ts` 锁定 14 个精确 ID、18 条逐操作记录和字符串金额：
+
+```ts
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { getPricingSnapshots, PRICING_SNAPSHOTS } from '../src/catalog/pricing.js';
+
+test('价格观察按精确模型和单一操作存储', () => {
+  assert.equal(new Set(PRICING_SNAPSHOTS.map((item) => item.exactId)).size, 14);
+  assert.equal(PRICING_SNAPSHOTS.length, 18);
+  assert.deepEqual(
+    getPricingSnapshots('gpt-image-2-gp', 'image.generate')[0]?.scheme,
+    { kind: 'token_pair', inputCnyPerMillionTokens: '58', outputCnyPerMillionTokens: '222' },
+  );
+  assert.deepEqual(getPricingSnapshots('gpt-image-2-gp', 'image.edit'), []);
+  assert.notDeepEqual(
+    getPricingSnapshots('openai/gpt-image-2', 'image.generate'),
+    getPricingSnapshots('gpt-image-2', 'image.generate'),
+  );
+});
+```
+
+再断言全部 `currency === 'CNY'`、`observationStatus === 'observed_only'`、证据类型为
+`platform_ui_snapshot`、`observedAt` 是 2026-08-14 的 ISO 时间，所有金额匹配
+`/^(0|[1-9]\d*)(\.\d+)?$/`，且任何证据 `source` 都不含本地截图路径。
+
+- [ ] **Step 2: 运行测试并确认红灯**
+
+Run: `npx tsx --test test/catalog-pricing.unit.test.ts`
+
+Expected: FAIL，缺少 `src/catalog/pricing.ts`。
+
+- [ ] **Step 3: 实现完整价格观察表**
+
+按下表生成逐操作 `PricingSnapshot`。列出 `image.generate,image.edit` 的行必须展开成两条记录；其他行只
+绑定 `image.generate`。`source` 固定为 `KWJM model center UI`，不保存截图文件名或路径。
+
+| 精确 ID | 操作 | `PriceScheme` |
+|---|---|---|
+| `gemini-2.5-flash-image-gp` | `image.generate` | `resolution_tier`：1K `0.30`、2K `0.38`、4K `0.46` |
+| `gemini-2.5-flash-image-hq` | `image.generate` | `fixed_output`：`0.21`，分辨率范围未说明 |
+| `gemini-2.5-flash-image` | `image.generate` | `fixed_output`：`0.45`，分辨率范围未说明 |
+| `gemini-3-pro-image-preview-gp` | `image.generate` | `token_pair`：输入 `14.8`、输出 `888` / 1M tokens |
+| `gemini-3-pro-image-preview-hq` | `image.generate` | `resolution_tier`：1K/2K `0.495`、4K `0.8274` |
+| `gemini-3.1-flash-image-preview-gp` | `image.generate` | `token_pair`：输入 `3.7`、输出 `444` / 1M tokens |
+| `gemini-3.1-flash-image-preview-hq` | `image.generate` | `resolution_tier`：1K `0.49`、2K `0.73`、4K `1.10` |
+| `gemini-3.1-flash-image-preview` | `image.generate` | `fixed_output`：`0.7474`，分辨率范围未说明 |
+| `gemini-3.1-flash-image-preview-wc` | `image.generate` | `resolution_tier`：1K `0.49`、2K `0.73`、4K `1.10` |
+| `openai/gpt-image-2` | `image.generate,image.edit` | `token_pair`：输入 `37`、输出 `222`、图片输入倍数 `1.6` |
+| `gpt-image-2` | `image.generate,image.edit` | `token_pair`：输入 `37`、输出 `222`、图片输入倍数 `1.6` |
+| `gpt-image-2-hq` | `image.generate,image.edit` | `token_pair`：输入 `37`、输出 `222`、图片输入倍数 `1.6` |
+| `gpt-image-2-sp` | `image.generate,image.edit` | `token_pair`：输入 `37`、输出 `222`、图片输入倍数 `1.6` |
+| `gpt-image-2-gp` | `image.generate` | `token_pair`：输入 `58`、输出 `222`；没有图片输入倍数证据 |
+
+`fixed_output.scope` 必须是 `platform_standard_price_unspecified_resolution`。`assertPricingSnapshots` 拒绝
+重复的 `exactId + operation + observedAt`、非十进制金额、未知币种、缺证据或给 `gpt-image-2-gp` 添加
+`imageInputToTextMultiplier`。
+
+- [ ] **Step 4: 把快照连接到操作契约但不升级授权**
+
+`model-profiles.ts` 为每个已有操作调用 `getPricingSnapshots(exactId, operation)`。只有价格证据但没有能力
+契约的模型仍保持 `unverified_variant` 或 `blocked`；价格快照不得创建 operation、protocol 或
+`documented` 状态。`openai/gpt-image-2` 和 `gpt-image-2` 返回内容相同但对象、`exactId` 与查询键不同。
+
+- [ ] **Step 5: 运行价格与目录测试**
+
+Run:
+
+```bash
+npx tsx --test test/catalog-pricing.unit.test.ts test/catalog-image-priority.unit.test.ts test/catalog-authorization.unit.test.ts
+npm run build
+```
+
+Expected: PASS；`getPricingSnapshots('unknown-model', 'image.generate')` 返回空数组，且任何价格查询都不会
+改变 `ModelCatalog.authorize` 的结果。
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add src/catalog/pricing.ts src/catalog/model-profiles.ts src/catalog/index.ts test/catalog-pricing.unit.test.ts
+git commit -m "feat(catalog): Add versioned price observations"
+```
+
+### Task 6: 实现实时合并、解析和操作级失败关闭授权
 
 **Files:**
 
@@ -548,10 +691,10 @@ Expected: PASS，所有拒绝路径均在构造 `KwjmClient` 之前完成。
 
 ```bash
 git add src/catalog/catalog.ts test/catalog-resolution.unit.test.ts test/catalog-authorization.unit.test.ts
-git commit -m "feat(catalog): fail closed by operation"
+git commit -m "feat(catalog): Fail closed by operation"
 ```
 
-### Task 6: 将现有工具迁移到操作级授权
+### Task 7: 将现有工具迁移到操作级授权
 
 **Files:**
 
@@ -616,10 +759,10 @@ Expected: PASS；源码扫描 `rg -n "modality: 'text'.*chat/completions|能力�
 
 ```bash
 git add src/core src/handlers test/registry.unit.test.ts test/catalog-handler-guard.integration.test.ts test/e2e.test.ts
-git commit -m "refactor: authorize tools by model operation"
+git commit -m "ref: Authorize tools by model operation"
 ```
 
-### Task 7: 生成并验证全部模型契约矩阵
+### Task 8: 生成并验证全部模型契约矩阵
 
 **Files:**
 
@@ -638,7 +781,7 @@ git commit -m "refactor: authorize tools by model operation"
 - [ ] **Step 1: 写矩阵覆盖失败测试**
 
 断言每个快照 ID 恰有一条记录，并包含 `existence`、`contract`、`representativeLive`、`exactLive`、
-`operations`、`blockers` 和 `evidenceObservedAt`。对仅实时存在的 ID，`contract` 必须是
+`operations`、`pricingSnapshots`、`blockers` 和 `evidenceObservedAt`。对仅实时存在的 ID，`contract` 必须是
 `unverified_variant` 且 `operations` 为空。
 
 - [ ] **Step 2: 运行测试并确认红灯**
@@ -651,6 +794,8 @@ Expected: FAIL，缺少 `buildContractMatrix`。
 
 按 `exactId` 排序，证据按 `kind/source/observedAt` 排序；JSON 使用两个空格缩进并以换行结尾。
 `--write` 仅写 `docs/audits/model-contract-matrix.json`，默认模式比较内存结果与已提交文件并在漂移时退出 1。
+矩阵从 `PRICING_SNAPSHOTS` 独立关联价格，因此即使某模型没有可执行 `operationContracts`，其已有的
+`platform_ui_snapshot` 价格观察仍可展示；显示价格不得改变 `contract`、`operations` 或授权结果。
 
 - [ ] **Step 4: 增加可重复命令**
 
@@ -658,7 +803,7 @@ Expected: FAIL，缺少 `buildContractMatrix`。
 
 ```json
 {
-  "test:catalog": "npx tsx --test test/catalog-live-snapshot.unit.test.ts test/catalog-resolution.unit.test.ts test/catalog-authorization.unit.test.ts test/catalog-image-priority.unit.test.ts test/catalog-handler-guard.integration.test.ts test/catalog-matrix.unit.test.ts",
+  "test:catalog": "npx tsx --test test/catalog-live-snapshot.unit.test.ts test/catalog-resolution.unit.test.ts test/catalog-authorization.unit.test.ts test/catalog-image-priority.unit.test.ts test/catalog-pricing.unit.test.ts test/catalog-handler-guard.integration.test.ts test/catalog-matrix.unit.test.ts",
   "verify:matrix": "npm run build && node dist/cli/verify-matrix.js"
 }
 ```
@@ -667,9 +812,9 @@ Expected: FAIL，缺少 `buildContractMatrix`。
 
 - [ ] **Step 5: 更新核心只读存在性基线**
 
-`test/live.readonly.test.ts` 使用设计中的 21 个核心 ID：删除推荐清单中的 `openai/gpt-image-2`，保留
-`gpt-image-2`，加入 `gpt-image-2-gp` 和 `gemini-3.1-flash-image-preview-gp`；只断言实时存在和精确 ID
-保留，不断言能力可执行。
+`test/live.readonly.test.ts` 使用设计中的 22 个核心 ID：同时保留彼此独立的 `openai/gpt-image-2` 与
+`gpt-image-2`，并包含稳定默认入口 `gpt-image-2-gp` 和 `gemini-3.1-flash-image-preview-gp`；只断言实时
+存在和精确 ID 保留，不断言能力可执行。
 
 - [ ] **Step 6: 生成矩阵并验证**
 
@@ -683,16 +828,17 @@ npm run verify:matrix
 npm test
 ```
 
-Expected: 全部 PASS；矩阵模型总数为 109，核心 21 个均存在，未知模型无可执行操作。
+Expected: 全部 PASS；矩阵模型总数为 109，核心 22 个均存在，未知模型无可执行操作；14 个价格模型共
+18 条逐操作观察，矩阵不包含截图路径或实际结算金额。
 
 - [ ] **Step 7: 提交**
 
 ```bash
 git add src/catalog/matrix.ts src/cli/verify-matrix.ts test/catalog-matrix.unit.test.ts test/live.readonly.test.ts docs/audits/model-contract-matrix.json package.json package-lock.json
-git commit -m "test(catalog): verify full model contract matrix"
+git commit -m "test(catalog): Verify full model contract matrix"
 ```
 
-### Task 8: 阶段 0 对抗性收口
+### Task 9: 阶段 0 对抗性收口
 
 **Files:**
 
@@ -724,14 +870,17 @@ Expected: 构建、目录测试、矩阵、全量测试通过；审计与包清�
 rg -n --hidden 'JWMP|api\.jwmp|JWMP_API_KEY|Authorization:\s*Bearer\s+[A-Za-z0-9_-]{16,}|sk-[A-Za-z0-9_-]{16,}' src package.json package-lock.json README.md docs/agents
 rg -n "z\.any\(|:\s*any\b|as any\b" src
 rg -n "unknown.*chat/completions|能力未策展；非指明不调用" src
+git ls-files | rg 'codex-clipboard|\.(png|jpg|jpeg|webp)$'
+rg -n '/var/folders|codex-clipboard|kwf_[A-Za-z0-9_-]+' src test docs/audits README.md
 ```
 
-Expected: 第一和第三条无命中；第二条不得出现新增无边界类型，既有命中必须在后续 MCP 契约阶段列为
-待清理而不能被本阶段扩散。
+Expected: 第一、第三、第四和第五条无命中；第二条不得出现新增无边界类型，既有命中必须在后续 MCP
+契约阶段列为待清理而不能被本阶段扩散。价格证据只包含抽象来源名与日期，不包含用户截图或完整任务 ID。
 
 - [ ] **Step 3: 更新收口文档**
 
-记录阶段 0 的 commit、109 模型矩阵摘要、21 核心模型存在性、未知模型失败关闭测试和剩余阶段 1–5。
+记录阶段 0 的 commit、109 模型矩阵摘要、22 核心模型存在性、18 条价格观察、未知模型失败关闭测试和
+剩余阶段 1–5。
 README 只更新当前目录语义，不宣称全部协议或稳定版完成。
 
 - [ ] **Step 4: 独立审阅差异**
@@ -745,7 +894,7 @@ README 只更新当前目录语义，不宣称全部协议或稳定版完成。
 git diff --check
 git status --short
 git add README.md docs/audits/2026-08-14-release-closure.md docs/audits/2026-08-14-release-closure.json
-git commit -m "docs(audit): close fail-closed catalog phase"
+git commit -m "docs(audit): Close fail-closed catalog phase"
 git status --short --branch
 ```
 
@@ -758,11 +907,13 @@ Expected: 最终工作树干净；发布闸门仍为 `blocked_remaining_protocol
 - **Async image authority:** 用户提供的官方页面直接约束创建、查询、状态、参考图上限和 GPT quality；未把
   `mask`、自动重试或自动模型回退加入契约。
 - **Type consistency:** `OperationId`、`ProtocolProfileId`、`ModelProfile`、`OperationContract` 和
-  `AuthorizationDecision` 在 Task 1 定义，后续任务只消费这些名称。
+  `AuthorizationDecision`、`PriceScheme`、`PricingSnapshot` 在 Task 1 定义，后续任务只消费这些名称。
+- **Price boundary:** Task 5 完整覆盖 14 个截图模型的 18 条逐操作观察；价格不能授权操作、不能从后缀
+  继承，也不保存截图路径、账户折扣或实际扣款。
 - **Safety:** 阶段内唯一允许的外部调用是显式只读 `/v1/models`；没有付费测试、发布、推送或密钥写盘。
 
 ## Stop Condition
 
-阶段 0 只有在未知实时模型可发现但无法通过任何生成工具触网、109 模型矩阵可重复生成、21 个核心 ID
-原样存在、两个 `-gp` 图片模型绑定同一异步协议档案、全部本地测试与安全扫描通过时才完成。任何一项未满足，
-不得进入现代 MCP 工具迁移或真实生成验证。
+阶段 0 只有在未知实时模型可发现但无法通过任何生成工具触网、109 模型矩阵可重复生成、22 个核心 ID
+原样存在、14 个价格模型的 18 条逐操作观察可复现、两个 `-gp` 图片模型绑定同一异步协议档案、全部本地
+测试与安全扫描通过时才完成。任何一项未满足，不得进入现代 MCP 工具迁移或真实生成验证。
