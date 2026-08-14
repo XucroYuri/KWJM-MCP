@@ -465,20 +465,41 @@ base64 到 JSON 文本，也不把完整上游响应塞进上下文。列表工�
 
 ### 11.4 工作室核心模型验收矩阵
 
-以下是第一阶段优先模型及目标能力。每个“目标能力”最终必须落成逐模型、逐操作的矩阵单元；单元只能是
-已文档化、契约通过、真实通过、成本门禁等待或外部阻塞，不能以同族其他模型成功代替。
+2026-08-14 用户确认以下 19 个精确 ID 是工作室实际会使用的核心模型。10:25 UTC 只读调用
+`GET /v1/models` 时，19 个 ID 全部存在；但对当时模型中心 62 个官方正文页面做精确同名扫描，19 个 ID
+均为零命中。官方只提供部分基础模型或协议族文档，因此“存在”不能直接升级成“安全可调用”。
+通用 Chat 文档的示例还残留旧 JWMP 主机；本文只采纳其相对路径与 Schema，Base URL 继续以认证指南和
+已确认配置中的 `https://kwjm.com` 为唯一权威值。
 
-| 类别 | 精确模型 ID | 目标能力 |
-|---|---|---|
-| 文本/多模态 | `openai/gpt-5.5`、`gpt-5.6-luna`、`gpt-5.6-terra`、`gpt-5.6-sol`、`kimi-k3`、`glm-5.2`、`grok-4.5` | 普通对话、流式、工具调用、图片理解 |
-| 纯文本 | `deepseek-v4-flash`、`deepseek-v4-pro` | 普通对话、流式、工具调用 |
-| 图片 | `openai/gpt-image-2`、`gpt-image-2`、`gpt-image-2-hq`、`gpt-image-2-sp`、`gpt-image-2-gp` | 文生图、图生图、图片编辑 |
-| 视频 | `kw-video-v2`、`kw-video-v2-fast`、`kw-video-v2-mini`、`kw-video-v2.5`、`MiniMax-H3`、`grok-imagine-1.0-video-sp` | 文生视频、图生视频、视频编辑、任务状态查询 |
+当前实现中前 12 个 ID 有人工静态映射；后 7 个没有静态条目，刷新后会被旧 `mergeLive` 错误注入为
+`text + /v1/chat/completions`。在失败关闭目录完成前，这 7 个 ID 即使能被发现也不得执行。
 
-这张表表达业务目标，不构成对上游能力的预先断言。若官方协议或受控调用证明某个模型不支持某项目标，
-必须把该单元标为外部阻塞并给出可用替代模型，不能伪造兼容层。低成本单元执行逐模型真实验证；被判定为
-高成本的单元先完成契约和协议族代表验证，待用户单独放行后再取得 `exact_live`。未放行的模型不得宣传为
-“已完全跑通”。
+| 精确模型 ID | 已有证据与本地状态 | 当前阻碍 | 解除条件 |
+|---|---|---|---|
+| `gpt-5.6-luna` | 实时存在；本地人工映射到 Chat | 无精确官方正文；普通、流式、工具、图片理解均无精确实测 | 先完成操作级 Chat 契约，再做四项低成本精确验证 |
+| `gpt-5.6-sol` | 实时存在；本地人工映射到 Chat | 无精确官方正文或实测；本地标为高成本 | 契约测试后按高成本逐模型门禁验证目标操作 |
+| `gpt-5.6-terra` | 实时存在；Chat 图片理解已真实通过 | 无精确官方正文；普通、流式和工具调用尚未由该精确模型证明 | 保留图片理解收据，补齐其余三项低成本验证 |
+| `gpt-image-2-hq` | 实时存在；人工复用 `gpt-image-2` 生成/编辑协议 | 官方只写基础 ID；后缀语义、生成和编辑均无精确实测；高成本 | 取得变体说明或在单独门禁下验证生成与编辑 |
+| `gpt-image-2-sp` | 实时存在；人工复用 `gpt-image-2` 生成/编辑协议 | 官方只写基础 ID；无精确生成/编辑收据 | 以最低图片参数分别验证生成和编辑 |
+| `deepseek-v4-flash` | 实时存在；普通、SSE 流式和强制工具调用已真实通过 | 无精确官方正文；仍依赖待替换的旧目录与工具 Schema | 迁入新操作契约并保留现有脱敏实测收据 |
+| `deepseek-v4-pro` | 实时存在；人工映射到 Chat | 官方只有 v3.2 正文；无 v4-pro 精确协议或实测 | 先做最低输出普通调用，再验证流式和工具调用 |
+| `grok-4.5` | 实时存在；人工映射到 Chat | 无 Grok 文本精确正文；对话、工具、流式和视觉能力均未证实 | 官方确认或逐操作低成本验证，不从 Grok 视频文档继承 |
+| `kw-video-v2-mini` | 实时存在；文生视频和任务查询已真实通过 | 官方 `kw-video-v2` 正文只列 v2/fast；图生、参考/编辑未实测 | 保留已测操作；用合规图片/视频夹具按收费门禁补其余操作 |
+| `kw-video-v2.5` | 实时存在；人工复用 `/v3/contents/generations/tasks` | 官方正文未列 v2.5；所有操作缺精确实测；视频调用收费 | 先确认同协议，再以最低参数验证提交/查询；媒体操作另行门禁 |
+| `openai/gpt-5.5` | 实时存在；人工映射到 Chat | 无精确官方正文；Chat/Responses 选择、工具和视觉能力未证实；高成本 | 官方确认协议，或按门禁逐操作验证，禁止因 `openai/` 前缀猜路由 |
+| `openai/gpt-image-2` | 实时存在；人工复用基础生成/编辑协议 | 官方正文只写 `gpt-image-2`；现有真实图片测试也使用基础 ID 而非该 ID | 以该精确 ID 单独验证生成和编辑，不能复用基础 ID 收据 |
+| `sd-video-enhance-ext` | 实时存在，`owned_by=volc`；官方有相邻增强协议 | 无静态条目，会被错误当成 Chat；官方示例模型是 `doubao-video-enhance`，不是该 ID | 提供方确认精确路由或用合规源视频受控探测；实现增强提交与任务查询工具 |
+| `gemini-2.5-flash-image-hq` | 实时存在，`owned_by=google`；官方有无 `-hq` 的基础正文 | 无静态条目，会被错误当成 Chat；`-hq` 语义和精确原生端点未说明 | 建立 Gemini Native 图片适配器，再按精确 ID 验证生成/参考图输入 |
+| `gemini-3-pro-image-preview-hq` | 实时存在；有无 `-hq` 的基础正文 | 无静态条目；原生路径、结果解析和 `-hq` 语义未绑定 | 完成 `{model}:generateContent` 路径替换和媒体解析，再受控实测 |
+| `gemini-3.1-flash-image-preview-hq` | 实时存在；有无 `-hq` 的基础正文 | 无静态条目；图片生成/编辑能力和质量后缀未证实 | 精确协议确认或低成本原生生成与参考图验证 |
+| `gemini-3.1-flash-image-preview-wc` | 实时存在；有无 `-wc` 的基础正文 | 无静态条目；`-wc` 含义、参数差异和可用操作完全未说明 | 必须先获得提供方说明或单一受控原生探测，不能从名称推断 |
+| `gemini-3.5-flash` | 实时存在，`owned_by=google`；有 Gemini Native 家族正文 | 无静态条目，会被错误当成 Chat；模态、Chat/Native 入口及工具能力未绑定 | 优先取得精确协议说明；否则用最低输出单端点探测后再扩展流式/工具/视觉 |
+| `MiniMax-M3` | 实时存在；`owned_by` 缺失 | 无静态条目，会被错误当成 Chat；官方只有 MiniMax-H3 视频正文，M3 的模态和协议未知 | 提供方先确认模型类型和唯一入口，再做一次最低成本验证；不得从 H3 继承 |
+
+这 19 个模型的阻碍分为四类：精确官方契约缺失、本地安全路由未完成、逐模型逐操作实测不足，以及媒体
+操作所需的成本授权和合规素材。缺精确正文不等于永久不可用；受控真实调用可把某一操作升级为
+`exact_live`，但不能扩张到同模型的其他操作。任何尚未解除的单元必须保留 `blocked` 或
+`unverified_variant`，不能用同族模型成功代替。
 
 ### 11.5 发布闸门
 
@@ -562,10 +583,15 @@ base64 到 JSON 文本，也不把完整上游响应塞进上下文。列表工�
 - [异步图片协议](https://kwjm.com/docs/modelhub/openai/images-generations-async.html)
 - [KW Video 协议](https://kwjm.com/docs/modelhub/sp/kw-video-v2.html)
 - [Doubao Video 协议](https://kwjm.com/docs/modelhub/doubao/sd-2.html)
+- [Doubao Video 增强协议](https://kwjm.com/docs/modelhub/doubao/sd-2-enhance.html)
+- [DeepSeek v3.2 协议](https://kwjm.com/docs/modelhub/deepseek/deepseek-v3-2.html)
 - [MiniMax Video 协议](https://kwjm.com/docs/modelhub/minimax/MiniMax-H3.html)
 - [Qwen Video 协议](https://kwjm.com/docs/modelhub/qwen/wan2.7-t2v.html)
 - [Kling Video-to-Video 协议](https://kwjm.com/docs/modelhub/sp/kling-video-o1-pro-gp-video2video.html)
 - [Gemini 原生协议](https://kwjm.com/docs/modelhub/google/gemini-3.html)
+- [Gemini 2.5 图片协议](https://kwjm.com/docs/modelhub/google/gemini-2.5-flash-image.html)
+- [Gemini 3 Pro 图片协议](https://kwjm.com/docs/modelhub/google/gemini-3-pro-image-preview.html)
+- [Gemini 3.1 Flash 图片协议](https://kwjm.com/docs/modelhub/google/gemini-3.1-flash-image-preview.html)
 - [Gemini TTS 协议](https://kwjm.com/docs/modelhub/google/gemini-3.1-flash-tts-preview.html)
 - [KWJM Asset 协议](https://kwjm.com/docs/modelhub/sp/kw-video-v2-assets.html)
 - [MCP TypeScript SDK Server 文档](https://github.com/modelcontextprotocol/typescript-sdk/blob/main/docs/server.md)
