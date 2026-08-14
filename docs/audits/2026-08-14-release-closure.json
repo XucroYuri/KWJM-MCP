@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "release": "1.0.0",
+  "observedAt": "2026-08-14",
+  "baseUrl": "https://kwjm.com",
+  "localTests": { "passed": 68, "failed": 0, "skipped": 0 },
+  "liveEvidence": {
+    "priorityModelsExact": { "passed": 20, "total": 20 },
+    "chat": "verified",
+    "stream": "verified_without_generated_progress_text",
+    "toolCalling": "verified",
+    "vision": "verified",
+    "messages": "verified",
+    "imageGeneration": "verified_low_cost",
+    "imageEditing": "verified_low_cost",
+    "textToVideo": "verified_low_cost",
+    "imageToVideo": "verified_low_cost_final_url",
+    "referenceVideoGeneration": "verified_low_cost_final_url",
+    "videoStatus": "verified_to_terminal_success",
+    "wallet": "verified_read_only",
+    "accountDailyCosts": "verified_read_only",
+    "currentKeyDailyCost": "local_filter_verified_live_pending_key_id"
+  },
+  "security": {
+    "originalMediumFindings": 6,
+    "remediatedBeforePublication": 6,
+    "apiKeyRecorded": false,
+    "promptRecorded": false,
+    "generatedContentRecorded": false,
+    "dependencyAuditVulnerabilities": 0
+  },
+  "releaseGate": {
+    "status": "ready_pending_external_inputs",
+    "pending": ["KWJM_API_KEY_ID", "github_repository_visibility"]
+  }
+}

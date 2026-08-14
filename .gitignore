@@ -1,0 +1,14 @@
+node_modules/
+dist/
+*.log
+.env
+.env.*
+!.env.example
+.mcp.json
+.omx/
+.omc/
+.DS_Store
+*.pem
+*.key
+*.p12
+*.tgz

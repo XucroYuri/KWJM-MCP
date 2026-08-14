@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 2,
+  "observedAt": "2026-08-14",
+  "baseUrl": "https://kwjm.com",
+  "security": {
+    "apiKeyRecorded": false,
+    "promptRecorded": false,
+    "generatedTextRecorded": false,
+    "generatedImageRecorded": false,
+    "generatedVideoRecorded": false,
+    "taskIdRecorded": false
+  },
+  "costPolicy": {
+    "imageGenerationSubmitted": true,
+    "imageEditingSubmitted": true,
+    "videoGenerationSubmitted": true,
+    "videoEditingSubmitted": false,
+    "imageParameters": { "model": "gpt-image-2", "size": "1024x1024", "quality": "low", "n": 1 },
+    "videoParameters": { "model": "kw-video-v2-mini", "duration": 4, "resolution": "480p", "ratio": "1:1", "generate_audio": false },
+    "dailyCostClosure": "pending_day_settlement"
+  },
+  "readOnlyApiProbes": {
+    "models": { "path": "/v1/models", "status": 200, "modelCount": 109 },
+    "dailyByModels": { "path": "/api/v1/user/statistics/day/models", "status": 200, "reportDate": "2026-08-14", "rowCount": 0 },
+    "dailyByKeys": { "path": "/api/v1/user/statistics/day/keys", "status": 200, "reportDate": "2026-08-14", "rowCount": 0 }
+  },
+  "priorityModelCoverage": {
+    "total": 20,
+    "platformListed": 20,
+    "mcpResolved": 20,
+    "mcpExactIdPreserved": 20,
+    "runtimeAuthority": "v1_models_exact_id",
+    "groups": {
+      "multimodalText": { "total": 7, "platformListed": 7, "mcpResolved": 7, "representativeCallVerified": 1 },
+      "text": { "total": 2, "platformListed": 2, "mcpResolved": 2, "representativeCallVerified": 1 },
+      "image": { "total": 5, "platformListed": 5, "mcpResolved": 5, "representativeCallVerified": 1 },
+      "video": { "total": 6, "platformListed": 6, "mcpResolved": 6, "representativeCallVerified": 1 }
+    }
+  },
+  "mcpExternalToolResults": {
+    "refresh_models": "verified_live",
+    "chat_completions": "verified_normal_stream_tools_and_vision",
+    "messages": "local_transport_verified_live_not_run",
+    "generate_image": "verified_live_low_cost",
+    "edit_image": "verified_live_multipart_low_cost",
+    "generate_video": "verified_live_text_to_video_low_cost",
+    "get_video_result": "verified_live_real_task"
+  },
+  "capabilityResults": {
+    "normalChat": "verified",
+    "streaming": "verified_provider_sse_and_mcp_progress",
+    "toolCalling": "verified_forced_function_call",
+    "imageUnderstanding": "verified",
+    "imageGeneration": "verified",
+    "imageToImage": "verified_via_edit_endpoint",
+    "imageEditing": "verified",
+    "videoGeneration": "verified_text_to_video",
+    "imageToVideo": "not_run_additional_cost_gate",
+    "videoEditing": "not_run_additional_cost_gate",
+    "videoTaskStatus": "verified_real_task"
+  },
+  "knownNonBillableFailure": {
+    "area": "video_preflight",
+    "cause": "hardFail_was_unconditional",
+    "platformRequestSent": false,
+    "fixed": true,
+    "regressionTestAdded": true
+  },
+  "releaseGate": "blocked_remaining_capability_matrix"
+}

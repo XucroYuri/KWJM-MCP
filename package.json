@@ -1,0 +1,49 @@
+{
+  "name": "kwjm-mcp",
+  "version": "1.0.0",
+  "description": "基于开物基模 (kwjm.com) API 的 MCP 服务，供多种 Agent 工具配置 API Key 后调用文本/图像/视频模型",
+  "type": "module",
+  "license": "MIT",
+  "author": "XucroYuri",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/XucroYuri/KWJM-MCP.git"
+  },
+  "bugs": {
+    "url": "https://github.com/XucroYuri/KWJM-MCP/issues"
+  },
+  "homepage": "https://github.com/XucroYuri/KWJM-MCP#readme",
+  "keywords": ["mcp", "kwjm", "ai", "model-context-protocol"],
+  "engines": {
+    "node": ">=18"
+  },
+  "bin": {
+    "kwjm-mcp": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "npm run build && npx tsx --test test/config.unit.test.ts test/client.unit.test.ts test/operations.unit.test.ts test/registry.unit.test.ts test/sse.unit.test.ts test/schema-limits.unit.test.ts test/validate.unit.test.ts test/text-tools.integration.test.ts test/image-transport.integration.test.ts test/video-routing.integration.test.ts test/usage-tools.integration.test.ts test/e2e.test.ts",
+    "test:unit": "npx tsx --test test/config.unit.test.ts test/client.unit.test.ts test/operations.unit.test.ts test/registry.unit.test.ts test/sse.unit.test.ts test/schema-limits.unit.test.ts test/validate.unit.test.ts",
+    "test:live": "npm run test:live:readonly",
+    "test:live:readonly": "npx tsx --test test/live.readonly.test.ts",
+    "test:live:text": "npx tsx --test test/live.text.test.ts",
+    "test:live:image": "npx tsx --test test/live.image.test.ts",
+    "test:live:video": "npx tsx --test test/live.video.test.ts",
+    "test:live:video-reference": "npx tsx --test test/live.video-reference.test.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

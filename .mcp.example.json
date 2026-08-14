@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "kwjm-mcp": {
+      "command": "npx",
+      "args": ["-y", "kwjm-mcp"],
+      "env": {
+        "KWJM_API_KEY": "YOUR_KWJM_API_KEY",
+        "KWJM_API_KEY_ID": "YOUR_NUMERIC_API_KEY_ID"
+      }
+    }
+  }
+}
