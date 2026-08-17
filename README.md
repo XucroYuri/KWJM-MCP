@@ -15,6 +15,7 @@
   - **默认/备选/非指明不调用**分级：`default` 同类任务优先、`fallback` 备选、`off-by-default` 仅显式指名，绝不默认触碰未知模型。
   - **歧义问询**：指明模型但存在版本/同名歧义（如 `deepseek` 家族）时，返回候选清单，交用户或 Agent 依据准确上下文选定，不擅自猜测。
   - **实时精确 ID 优先**：`/v1/models` 返回的精确 ID 是最终请求值；别名仅作为辅助入口，不能覆盖同名实时 ID。例如 `kw-video-v2*` 必须原样传给平台。
+  - **Seedance 语义锁定**：用户说 `Seedance 2.0` 时，对应 `kw-video-v2`、`kw-video-v2-fast`、`kw-video-v2-mini` 三档候选，最匹配 `kw-video-v2`，但需确认后再调用；用户说 `Seedance 2.5` 时，对应 `kw-video-v2.5`。
   - **同类工作默认决策**：同类任务由 Agent 依据上下文决定使用哪个 default 模型，不强制每次问询。
 - **能力边界预检 + 主动拦截**：`validate_request` 在调用前校验用户输入（参考图数量上限、尺寸/分辨率/比例/时长枚举、必现错误），越界时主动提醒并给修正建议；`suggest_model` 按任务给出默认/备选/非指明分级。
 - **错误码「说人话」**：`401/403/429/500/503` 等错误码内化为「问题性质 + 原版含义 + 通俗解释 + 下一步引导」四段结构，Agent 不再只吐状态码，而是用普通人听得懂的话解释「发生了什么、为什么、该怎么办」。
@@ -84,12 +85,14 @@ npx -y kwjm-mcp
   - `/v1/videos/text2video|image2video|video2video|reference`（kling 系列）
   - `/v1/videos/create`（veo3.1、sora-2-sp）、`/v1/videos`（sora-2）
   - `/v2/video_generation`（MiniMax-H3）、DashScope `/api/v1/services/aigc/video-generation/video-synthesis`（wan2.7）
-- **精确 ID 规则**：`kw-video-v2`、`kw-video-v2-fast`、`kw-video-v2-mini`、`kw-video-v2.5` 均为独立平台 ID，不映射为 dreamina ID。
+- **精确 ID 规则**：`kw-video-v2`、`kw-video-v2-fast`、`kw-video-v2-mini`、`kw-video-v2.5` 均为独立平台 ID，不映射为 dreamina ID。自然语言 `Seedance 2.0` 返回前三者候选并推荐 `kw-video-v2`；自然语言 `Seedance 2.5` 映射到 `kw-video-v2.5`。
 
 ### 关于选择规则（很重要）
 
 - **默认模型**：文本 `gpt-5.2-pro-2025-12-11`；图像 `gpt-image-2`；视频 `kw-video-v2`。同类任务不指名时由 Agent 默认采用。
 - **歧义**：入参命中多个候选（如 `wan`、`kling` 等多版本家族）→ 工具返回候选清单，需确定后再调用。
+- **Seedance 2.0**：视为 `kw-video-v2`、`kw-video-v2-fast`、`kw-video-v2-mini` 三档候选；默认建议 `kw-video-v2`，但调用前必须让用户确认具体档位。
+- **Seedance 2.5**：视为 `kw-video-v2.5`。
 - **非指明不调用**：`claude-opus-4-8`、`gpt-image-2-gp`（异步）、`grok-imagine` 等已标记的模型，未显式指名(`explicit: true`)不会调用。
 
 ---

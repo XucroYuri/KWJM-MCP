@@ -145,6 +145,8 @@ export function validateForModel(registry: ModelRegistry, modelInput: string, ar
   pass: boolean;
   model?: string;
   resolvedFrom?: string;
+  requiresUserConfirmation?: boolean;
+  recommended?: string;
   violations?: Violation[];
   hint?: string;
 } {
@@ -153,7 +155,15 @@ export function validateForModel(registry: ModelRegistry, modelInput: string, ar
   if (r.status === 'ambiguous') {
     return {
       pass: false,
-      violations: [{ field: 'model', message: `模型「${modelInput}」有歧义。`, fix: `候选：${r.candidates.map((c) => c.id).join(' / ')}` }],
+      requiresUserConfirmation: r.requiresUserConfirmation ?? true,
+      recommended: r.recommended?.id,
+      violations: [{
+        field: 'model',
+        message: `模型「${modelInput}」有歧义。`,
+        fix: r.recommended
+          ? `推荐 ${r.recommended.id}，但需用户确认；候选：${r.candidates.map((c) => c.id).join(' / ')}`
+          : `候选：${r.candidates.map((c) => c.id).join(' / ')}`,
+      }],
     };
   }
   const model = r.model;
