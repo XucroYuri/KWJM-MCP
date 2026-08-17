@@ -18,6 +18,9 @@ function get(path: string, opts: Partial<EndpointSpec> = {}): EndpointSpec {
 const VIDEO_STATUS = ['queued', 'running', 'succeeded', 'failed', 'expired'];
 const TASK_STATUS_COMPLETED = ['queued', 'running', 'completed', 'failed'];
 const IMAGE_ASYNC_STATUS = ['WAIT', 'RUN', 'DONE', 'FAIL'];
+const SEEDANCE_2_0_INPUTS = new Set(['seedance 2.0', 'seedance-2.0', 'seedance2.0', 'seedance 2', 'seedance-2', 'seedance2', 'sd-2']);
+const SEEDANCE_2_0_CANDIDATES = ['kw-video-v2', 'kw-video-v2-fast', 'kw-video-v2-mini'];
+const SEEDANCE_2_5_INPUTS = new Set(['seedance 2.5', 'seedance-2.5', 'seedance2.5', 'seedance 2 5', 'seedance-2-5', 'sd-2.5']);
 
 /** 内部种子类型：一组端点 + 元数据 + 别名 */
 interface SeedModel {
@@ -339,9 +342,8 @@ const SEED: SeedModel[] = [
         returnFields: ['id', 'model', 'status', 'content.video_url', 'usage'],
       }),
     ],
-    selectionLevel: 'default',
-    defaultFor: ['video'],
-    notes: 'Seedance 文/图生视频，默认首选（doubao-seedance-1-5-pro）。',
+    selectionLevel: 'fallback',
+    notes: 'Seedance 1.5 文/图生视频。注意：用户说 Seedance 2.0 时应走 kw-video-v2 候选，不使用本模型。',
     params: [
       { name: 'ratio', enum: ['16:9', '9:16', '1:1', 'adaptive'] },
       { name: 'resolution', enum: ['480p', '720p', '1080p', '4k'] },
@@ -363,7 +365,16 @@ const SEED: SeedModel[] = [
     selectionLevel: id === 'kw-video-v2' ? 'default' : 'fallback',
     defaultFor: id === 'kw-video-v2' ? ['video'] : undefined,
     costTier: id.endsWith('-mini') ? 'medium' : 'high',
-    notes: 'KWJM /v1/models 返回的精确视频模型 ID；不得改写为其他模型 ID。',
+    aliases: id === 'kw-video-v2-fast'
+      ? ['seedance-2.0-fast', 'seedance 2.0 fast']
+      : id === 'kw-video-v2-mini'
+        ? ['seedance-2.0-mini', 'seedance 2.0 mini']
+        : undefined,
+    notes: id === 'kw-video-v2'
+      ? 'KWJM /v1/models 返回的精确视频模型 ID；用户说 Seedance 2.0 时最匹配本模型，但需让用户在 kw-video-v2 / kw-video-v2-fast / kw-video-v2-mini 中确认。'
+      : id === 'kw-video-v2.5'
+        ? 'KWJM /v1/models 返回的精确视频模型 ID；用户说 Seedance 2.5 时即指向本模型。'
+        : 'KWJM /v1/models 返回的精确视频模型 ID；用户说 Seedance 2.0 时可作为候选之一，需用户确认。',
     constraints: {
       ratio: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', 'adaptive'],
       resolution: ['480p', '720p', '1080p', '4k'],
@@ -392,10 +403,8 @@ const SEED: SeedModel[] = [
         returnFields: ['id', 'model', 'status', 'content.video_url', 'usage'],
       }),
     ],
-    selectionLevel: 'default',
-    defaultFor: ['video'],
-    notes: 'Dreamina Seedance 2.0 兼容模型；不再劫持 kw-video-v2 精确 ID。',
-    aliases: ['seedance-2.0', 'sd-2'],
+    selectionLevel: 'fallback',
+    notes: 'Dreamina Seedance 2.0 兼容模型；不承接“Seedance 2.0”自然语言语义，用户说 Seedance 2.0 时应返回 kw-video-v2 / kw-video-v2-fast / kw-video-v2-mini 候选并让用户确认。',
     constraints: {
       ratio: ['16:9', '4:3', '1:1', '3:4', '9:16', '21:9', 'adaptive'],
       resolution: ['480p', '720p', '1080p', '4k'],
@@ -420,7 +429,6 @@ const SEED: SeedModel[] = [
     ],
     selectionLevel: 'fallback',
     notes: 'Dreamina Seedance 2.0 快档兼容模型。',
-    aliases: ['seedance-2.0-fast'],
   },
   {
     id: 'dreamina-seedance-2-0-mini',
@@ -431,7 +439,6 @@ const SEED: SeedModel[] = [
     ],
     selectionLevel: 'fallback',
     notes: 'Dreamina Seedance 2.0 轻量档兼容模型。',
-    aliases: ['seedance-2.0-mini'],
   },
   // ================= 视频 · wan 系列（DashScope 等效）=================
   {
@@ -741,6 +748,23 @@ export class ModelRegistry {
 
   resolve(input: string): Resolution {
     const k = norm(input);
+    if (SEEDANCE_2_0_INPUTS.has(k)) {
+      const candidates = SEEDANCE_2_0_CANDIDATES
+        .map((id) => this.byId.get(norm(id)))
+        .filter((model): model is ModelCapability => Boolean(model));
+      return {
+        status: 'ambiguous',
+        keyword: input,
+        candidates,
+        recommended: candidates.find((candidate) => candidate.id === 'kw-video-v2'),
+        requiresUserConfirmation: true,
+        message: `模型「${input}」在 KWJM 语义中对应 kw-video-v2 / kw-video-v2-fast / kw-video-v2-mini；最匹配的是 kw-video-v2，请确认其一后重试。`,
+      };
+    }
+    if (SEEDANCE_2_5_INPUTS.has(k)) {
+      const model = this.byId.get(norm('kw-video-v2.5'));
+      if (model) return { status: 'resolved', model, resolvedFrom: input };
+    }
     const direct = this.byId.get(k);
     if (direct) return { status: 'resolved', model: direct };
     const realId = this.byAlias.get(k);

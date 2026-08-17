@@ -40,6 +40,15 @@ export function guardModel(
             modality: c.modality,
             selectionLevel: c.selectionLevel,
           })),
+          recommended: r.recommended
+            ? {
+                id: r.recommended.id,
+                family: r.recommended.family,
+                modality: r.recommended.modality,
+                selectionLevel: r.recommended.selectionLevel,
+              }
+            : undefined,
+          requiresUserConfirmation: r.requiresUserConfirmation,
           message: r.message,
         },
         true

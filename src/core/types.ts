@@ -95,5 +95,5 @@ export interface LiveModelEntry {
 /** 解析结果：已唯一命中 / 歧义需问询 / 未命中 */
 export type Resolution =
   | { status: 'resolved'; model: ModelCapability; resolvedFrom?: string }
-  | { status: 'ambiguous'; keyword: string; candidates: ModelCapability[]; message: string }
+  | { status: 'ambiguous'; keyword: string; candidates: ModelCapability[]; message: string; recommended?: ModelCapability; requiresUserConfirmation?: boolean }
   | { status: 'not-found'; input: string };

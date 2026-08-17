@@ -79,6 +79,47 @@ test('e2e: kw-video-v2 保留平台精确 ID', async () => {
   }
 });
 
+test('e2e: Seedance 2.0 返回推荐型号并要求用户确认', async () => {
+  const client = await launchServer();
+  try {
+    const res = await client.callTool({
+      name: 'generate_video',
+      arguments: {
+        model: 'Seedance 2.0',
+        prompt: '角色抬头并眨眼',
+        duration: 4,
+        ratio: '16:9',
+        resolution: '720p',
+      },
+    });
+    assert.equal(res.isError, true);
+    const text = res.content[0].type === 'text' ? (res.content[0] as { text: string }).text : '';
+    const parsed = JSON.parse(text);
+    assert.equal(parsed.requiresUserConfirmation, true);
+    assert.equal(parsed.recommended.id, 'kw-video-v2');
+    assert.deepEqual(parsed.candidates.map((candidate: { id: string }) => candidate.id), [
+      'kw-video-v2',
+      'kw-video-v2-fast',
+      'kw-video-v2-mini',
+    ]);
+  } finally {
+    await client.close();
+  }
+});
+
+test('e2e: Seedance 2.5 唯一解析到 kw-video-v2.5', async () => {
+  const client = await launchServer();
+  try {
+    const res = await client.callTool({ name: 'get_model_capabilities', arguments: { model: 'Seedance 2.5' } });
+    const text = res.content[0].type === 'text' ? (res.content[0] as { text: string }).text : '';
+    const parsed = JSON.parse(text);
+    assert.equal(parsed.id, 'kw-video-v2.5');
+    assert.equal(parsed.resolvedFrom, 'Seedance 2.5');
+  } finally {
+    await client.close();
+  }
+});
+
 test('e2e: chat_completions schema 暴露工具调用字段与 tool role', async () => {
   const client = await launchServer();
   try {
@@ -179,6 +220,8 @@ test('e2e: suggest_model 按任务返回默认/备选/非指明分级', async ()
     assert.ok(Array.isArray(parsed.doNotCallUnlessExplicit));
     // 视频差异化引导：可选能力
     assert.ok(parsed.guidance.some((g: string) => g.includes('可选能力')), '视频应提示可选能力');
+    assert.ok(parsed.guidance.some((g: string) => g.includes('Seedance 2.0') && g.includes('kw-video-v2')), '视频应提示 Seedance 2.0 外壳语义');
+    assert.ok(parsed.guidance.some((g: string) => g.includes('Seedance 2.5') && g.includes('kw-video-v2.5')), '视频应提示 Seedance 2.5 直达语义');
   } finally {
     await client.close();
   }

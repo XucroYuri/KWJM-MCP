@@ -11,8 +11,12 @@ function miniSeed() {
     { id: 'gpt-5.2', family: 'openai', modality: 'text', endpoints: [{ path: '/v1/chat/completions', method: 'POST', async: false }], selectionLevel: 'fallback', aliases: ['gpt-5'] },
     { id: 'deepseek-chat', family: 'deepseek', modality: 'text', endpoints: [{ path: '/v1/chat/completions', method: 'POST', async: false }], selectionLevel: 'fallback', ambiguous: true },
     { id: 'deepseek-reasoner', family: 'deepseek', modality: 'text', endpoints: [{ path: '/v1/chat/completions', method: 'POST', async: false }], selectionLevel: 'fallback', aliases: ['deepseek-r1'] },
-    { id: 'dreamina-seedance-2-0', family: 'dreamina', modality: 'video', endpoints: [{ path: '/v3/contents/generations/tasks', method: 'POST', async: true, queryPath: '/v3/contents/generations/tasks/{id}' }], selectionLevel: 'default', defaultFor: ['video'], aliases: ['seedance-2.0'] },
-    { id: 'dreamina-seedance-2-0-fast', family: 'dreamina', modality: 'video', endpoints: [{ path: '/v3/contents/generations/tasks', method: 'POST', async: true, queryPath: '/v3/contents/generations/tasks/{id}' }], selectionLevel: 'fallback', aliases: ['seedance-2.0-fast'] },
+    { id: 'kw-video-v2', family: 'kw-video', modality: 'video', endpoints: [{ path: '/v3/contents/generations/tasks', method: 'POST', async: true, queryPath: '/v3/contents/generations/tasks/{id}' }], selectionLevel: 'default', defaultFor: ['video'] },
+    { id: 'kw-video-v2-fast', family: 'kw-video', modality: 'video', endpoints: [{ path: '/v3/contents/generations/tasks', method: 'POST', async: true, queryPath: '/v3/contents/generations/tasks/{id}' }], selectionLevel: 'fallback', aliases: ['seedance-2.0-fast'] },
+    { id: 'kw-video-v2-mini', family: 'kw-video', modality: 'video', endpoints: [{ path: '/v3/contents/generations/tasks', method: 'POST', async: true, queryPath: '/v3/contents/generations/tasks/{id}' }], selectionLevel: 'fallback', aliases: ['seedance-2.0-mini'] },
+    { id: 'kw-video-v2.5', family: 'kw-video', modality: 'video', endpoints: [{ path: '/v3/contents/generations/tasks', method: 'POST', async: true, queryPath: '/v3/contents/generations/tasks/{id}' }], selectionLevel: 'fallback' },
+    { id: 'dreamina-seedance-2-0', family: 'dreamina', modality: 'video', endpoints: [{ path: '/v3/contents/generations/tasks', method: 'POST', async: true, queryPath: '/v3/contents/generations/tasks/{id}' }], selectionLevel: 'fallback' },
+    { id: 'dreamina-seedance-2-0-fast', family: 'dreamina', modality: 'video', endpoints: [{ path: '/v3/contents/generations/tasks', method: 'POST', async: true, queryPath: '/v3/contents/generations/tasks/{id}' }], selectionLevel: 'fallback' },
     { id: 'claude-opus-4-8', family: 'anthropic', modality: 'text', endpoints: [{ path: '/v1/messages', method: 'POST', async: false }], selectionLevel: 'off-by-default' },
   ];
 }
@@ -24,21 +28,44 @@ test('registry.resolve 直接命中真实 id', () => {
   if (res.status === 'resolved') assert.equal(res.model.id, 'gpt-5.2-pro-2025-12-11');
 });
 
-test('registry.resolve 别名 → 真实模型（seedance-2.0 → dreamina-seedance-2-0）', () => {
+test('registry.resolve Seedance 2.0 语义返回 kw-video-v2 三档候选', () => {
   const r = new ModelRegistry(miniSeed());
   const res = r.resolve('seedance-2.0');
-  assert.equal(res.status, 'resolved');
-  if (res.status === 'resolved') {
-    assert.equal(res.model.id, 'dreamina-seedance-2-0');
-    assert.equal(res.resolvedFrom, 'seedance-2.0');
+  assert.equal(res.status, 'ambiguous');
+  if (res.status === 'ambiguous') {
+    assert.deepEqual(res.candidates.map((c) => c.id), ['kw-video-v2', 'kw-video-v2-fast', 'kw-video-v2-mini']);
+    assert.equal(res.recommended?.id, 'kw-video-v2');
+    assert.match(res.message, /最匹配的是 kw-video-v2/);
   }
 });
 
-test('registry.resolve seedance-2.0-fast → dreamina-seedance-2-0-fast', () => {
+test('registry.resolve Seedance 2.5 语义直达 kw-video-v2.5', () => {
+  const r = new ModelRegistry(miniSeed());
+  const res = r.resolve('Seedance 2.5');
+  assert.equal(res.status, 'resolved');
+  if (res.status === 'resolved') {
+    assert.equal(res.model.id, 'kw-video-v2.5');
+    assert.equal(res.resolvedFrom, 'Seedance 2.5');
+  }
+});
+
+test('registry.has 与 matchCandidates 识别 Seedance 外壳语义', () => {
+  const r = new ModelRegistry(miniSeed());
+  assert.equal(r.has('Seedance 2.0'), true);
+  assert.equal(r.has('Seedance 2.5'), true);
+  assert.deepEqual(r.matchCandidates('Seedance 2.0').map((candidate) => candidate.id), [
+    'kw-video-v2',
+    'kw-video-v2-fast',
+    'kw-video-v2-mini',
+  ]);
+  assert.deepEqual(r.matchCandidates('Seedance 2.5').map((candidate) => candidate.id), ['kw-video-v2.5']);
+});
+
+test('registry.resolve seedance-2.0-fast → kw-video-v2-fast', () => {
   const r = new ModelRegistry(miniSeed());
   const res = r.resolve('seedance-2.0-fast');
   assert.equal(res.status, 'resolved');
-  if (res.status === 'resolved') assert.equal(res.model.id, 'dreamina-seedance-2-0-fast');
+  if (res.status === 'resolved') assert.equal(res.model.id, 'kw-video-v2-fast');
 });
 
 test('registry.resolve 家族歧义（deepseek）返回 multi 候选', () => {
@@ -86,10 +113,27 @@ test('selection 规则：歧义模型再问询 → 返回候选', () => {
   if (g.ok) assert.equal(g.model.id, 'deepseek-reasoner');
 });
 
+test('selection 规则：Seedance 2.0 返回结构化推荐并要求用户确认', () => {
+  const r = new ModelRegistry(miniSeed());
+  const g = guardModel(r, 'Seedance 2.0');
+  assert.equal(g.ok, false);
+  if (!g.ok) {
+    const text = (g.payload.content[0] as { text: string }).text;
+    const parsed = JSON.parse(text);
+    assert.equal(parsed.requiresUserConfirmation, true);
+    assert.equal(parsed.recommended.id, 'kw-video-v2');
+    assert.deepEqual(parsed.candidates.map((candidate: { id: string }) => candidate.id), [
+      'kw-video-v2',
+      'kw-video-v2-fast',
+      'kw-video-v2-mini',
+    ]);
+  }
+});
+
 test('defaultForModality 返回 text 默认首选', () => {
   const r = new ModelRegistry(miniSeed());
   assert.equal(r.defaultForModality('text')?.id, 'gpt-5.2-pro-2025-12-11');
-  assert.equal(r.defaultForModality('video')?.id, 'dreamina-seedance-2-0');
+  assert.equal(r.defaultForModality('video')?.id, 'kw-video-v2');
 });
 
 test('mergeLive 将未知 id 并入为 off-by-default', () => {
@@ -139,6 +183,27 @@ test('真实 registry：kw-video-v2-mini 保留精确模型 ID', () => {
   const res = r.resolve('kw-video-v2-mini');
   assert.equal(res.status, 'resolved');
   if (res.status === 'resolved') assert.equal(res.model.id, 'kw-video-v2-mini');
+});
+
+test('真实 registry：Seedance 2.0 返回 kw-video-v2 三档候选且推荐 kw-video-v2', () => {
+  const r = new ModelRegistry();
+  const res = r.resolve('Seedance 2.0');
+  assert.equal(res.status, 'ambiguous');
+  if (res.status === 'ambiguous') {
+    assert.deepEqual(res.candidates.map((c) => c.id), ['kw-video-v2', 'kw-video-v2-fast', 'kw-video-v2-mini']);
+    assert.equal(res.recommended?.id, 'kw-video-v2');
+    assert.match(res.message, /最匹配的是 kw-video-v2/);
+  }
+});
+
+test('真实 registry：Seedance 2.5 映射到 kw-video-v2.5', () => {
+  const r = new ModelRegistry();
+  const res = r.resolve('seedance-2.5');
+  assert.equal(res.status, 'resolved');
+  if (res.status === 'resolved') {
+    assert.equal(res.model.id, 'kw-video-v2.5');
+    assert.equal(res.resolvedFrom, 'seedance-2.5');
+  }
 });
 
 test('真实 registry：第一阶段 20 个模型全部原样解析', () => {
