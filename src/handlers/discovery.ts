@@ -165,6 +165,7 @@ export function registerDiscovery(server: { tool: ToolRegistrar }, registry: Mod
         guidance.push('【只留最新两版】同家族只保留最新两版，太旧的已排除。');
         guidance.push('【Seedance 2.0 语义】用户要求 Seedance 2.0 时，候选是 kw-video-v2 / kw-video-v2-fast / kw-video-v2-mini；最匹配 kw-video-v2，但需让用户确认后再调用。');
         guidance.push('【Seedance 2.5 语义】用户要求 Seedance 2.5 时，即映射为 kw-video-v2.5。');
+        guidance.push('【MiniMax-H3 可平替】MiniMax-H3 在部分场景可平替 Seedance 2.0，可作为备选。');
       }
       guidance.push(`同类「${modality}」任务：优先使用默认首选 ${def?.id ?? '（无默认）'}，无需每次问询。`);
       guidance.push('非指明不调用：以下模型仅当用户明确指名（explicit: true）才可调用，绝不默认触碰。');

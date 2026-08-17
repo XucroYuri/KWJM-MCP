@@ -735,7 +735,7 @@ export class ModelRegistry {
 
   has(input: string): boolean {
     const k = norm(input);
-    return this.byId.has(k) || this.byAlias.has(k);
+    return this.byId.has(k) || this.byAlias.has(k) || SEEDANCE_2_0_INPUTS.has(k) || SEEDANCE_2_5_INPUTS.has(k);
   }
 
   byRealId(id: string): ModelCapability | undefined {
@@ -791,6 +791,15 @@ export class ModelRegistry {
   matchCandidates(keyword: string): ModelCapability[] {
     const kw = norm(keyword);
     if (!kw) return this.all();
+    if (SEEDANCE_2_0_INPUTS.has(kw)) {
+      return SEEDANCE_2_0_CANDIDATES
+        .map((id) => this.byId.get(norm(id)))
+        .filter((model): model is ModelCapability => Boolean(model));
+    }
+    if (SEEDANCE_2_5_INPUTS.has(kw)) {
+      const model = this.byId.get(norm('kw-video-v2.5'));
+      return model ? [model] : [];
+    }
     const direct = this.byId.get(kw);
     if (direct) return [direct];
     const realId = this.byAlias.get(kw);
